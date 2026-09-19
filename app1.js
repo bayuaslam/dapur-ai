@@ -1,3 +1,5 @@
+function i(name, amount, unit, optional=false, note='') { return { id: crypto.randomUUID(), name, amount, unit, optional, note }; }
+
 const DB_NAME = 'dapur-marlon-db';
 const DB_VERSION = 1;
 const STORE = { recipes: 'recipes', stock: 'stock', shopping: 'shopping', transactions: 'transactions', settings: 'settings' };
