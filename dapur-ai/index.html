@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f4efe5" />
+  <title>Dapur Marlon — Resep & Stok</title>
+  <meta name="description" content="Koleksi resep pribadi, stok dapur, daftar belanja, dan rekomendasi masakan berdasarkan bahan yang benar-benar tersedia." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Lewati ke konten</a>
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="brand" data-view="home" aria-label="Buka beranda">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span><strong>Dapur Marlon</strong><small>Resep pribadi & stok nyata</small></span>
+      </button>
+      <div class="top-actions">
+        <span class="sync-note" title="Penyimpanan lokal di browser ini">Tersimpan di perangkat ini</span>
+        <button class="icon-button" id="exportBtn" title="Ekspor data" aria-label="Ekspor data">⇩</button>
+      </div>
+    </header>
+
+    <nav class="nav-tabs" aria-label="Navigasi utama">
+      <button class="nav-tab active" data-view="home">Hari ini</button>
+      <button class="nav-tab" data-view="recipes">Resep</button>
+      <button class="nav-tab" data-view="stock">Stok</button>
+      <button class="nav-tab" data-view="shopping">Belanja <span id="shoppingCount" class="count-badge" hidden>0</span></button>
+    </nav>
+
+    <main id="main" tabindex="-1">
+      <section id="view-home" class="view active" aria-labelledby="homeTitle">
+        <div class="hero-grid">
+          <section class="hero-copy">
+            <p class="eyebrow">Dari bahan yang beneran ada</p>
+            <h1 id="homeTitle">Hari ini bisa masak apa?</h1>
+            <p class="hero-text">Masukkan stok dapur, lalu aplikasi mencocokkan resep pribadi berdasarkan bahan wajib, jumlah, dan satuan yang kompatibel.</p>
+            <div class="hero-actions">
+              <button class="primary-button" data-view="stock">Tambah bahan</button>
+              <button class="secondary-button" id="findFromStockBtn">Cari resep dari stok</button>
+            </div>
+          </section>
+          <aside class="status-panel" aria-label="Status layanan">
+            <div class="status-row">
+              <span class="status-dot local"></span>
+              <div><strong>Pencocokan stok aktif</strong><small>Berjalan lokal, tanpa AI.</small></div>
+            </div>
+            <div class="status-row">
+              <span class="status-dot offline"></span>
+              <div><strong>AI belum terhubung</strong><small>Parser lokal tetap bisa dipakai. Tidak ada integrasi AI palsu.</small></div>
+            </div>
+          </aside>
+        </div>
+
+        <section class="section-block" aria-labelledby="expiringTitle">
+          <div class="section-heading">
+            <div><p class="eyebrow">Prioritas dapur</p><h2 id="expiringTitle">Pakai bahan ini dulu</h2></div>
+            <button class="text-button" data-view="stock">Lihat stok</button>
+          </div>
+          <div id="expiringList" class="compact-list empty-inline"></div>
+        </section>
+
+        <section class="section-block" aria-labelledby="readyTitle">
+          <div class="section-heading">
+            <div><p class="eyebrow">Rekomendasi</p><h2 id="readyTitle">Paling cocok dari stok</h2></div>
+            <div class="segmented" role="group" aria-label="Filter rekomendasi">
+              <button class="segment active" data-rec-filter="all">Semua</button>
+              <button class="segment" data-rec-filter="ready">Bisa sekarang</button>
+              <button class="segment" data-rec-filter="close">Kurang sedikit</button>
+            </div>
+          </div>
+          <div id="homeRecommendations" class="recipe-grid"></div>
+        </section>
+      </section>
+
+      <section id="view-recipes" class="view" aria-labelledby="recipesTitle">
+        <div class="page-heading">
+          <div><p class="eyebrow">Koleksi pribadi</p><h1 id="recipesTitle">Resep</h1><p>Seed awal berasal dari resep yang pernah dibahas di percakapan ini. Durasi dan porsi bertanda perkiraan bisa diedit.</p></div>
+          <div class="page-actions">
+            <button class="secondary-button" id="importRecipeBtn">Impor dari teks</button>
+            <button class="primary-button" id="addRecipeBtn">Tambah resep</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <label class="search-field"><span class="sr-only">Cari resep</span><input id="recipeSearch" type="search" placeholder="Cari resep atau bahan…" /></label>
+          <select id="categoryFilter" aria-label="Filter kategori"><option value="all">Semua kategori</option></select>
+          <label class="check-label"><input id="favoriteOnly" type="checkbox" /> Favorit saja</label>
+        </div>
+        <div id="recipeGrid" class="recipe-grid"></div>
+      </section>
+
+      <section id="view-stock" class="view" aria-labelledby="stockTitle">
+        <div class="page-heading">
+          <div><p class="eyebrow">Stok nyata</p><h1 id="stockTitle">Bahan di dapur</h1><p>Bahan yang sama boleh punya beberapa batch kalau tanggal kedaluwarsanya berbeda.</p></div>
+          <button class="primary-button" id="manualStockBtn">Tambah bahan</button>
+        </div>
+
+        <section class="quick-add-panel" aria-labelledby="quickStockTitle">
+          <div class="quick-add-copy"><h2 id="quickStockTitle">Input cepat</h2><p>Contoh: “Telur 4 butir, ayam 500 gram, beras 1 kg, bawang putih 6 siung.”</p></div>
+          <label class="sr-only" for="quickStockInput">Input stok cepat</label>
+          <textarea id="quickStockInput" rows="3" placeholder="Ketik beberapa bahan sekaligus…"></textarea>
+          <div class="inline-actions"><button class="secondary-button" id="parseStockBtn">Ubah jadi daftar</button><span class="helper">Parser lokal • selalu direview sebelum disimpan</span></div>
+          <div id="stockParseReview" hidden></div>
+        </section>
+
+        <div class="stock-toolbar">
+          <label class="search-field"><span class="sr-only">Cari stok</span><input id="stockSearch" type="search" placeholder="Cari bahan…" /></label>
+          <select id="stockLocationFilter" aria-label="Filter lokasi stok"><option value="all">Semua lokasi</option><option value="kulkas">Kulkas</option><option value="freezer">Freezer</option><option value="rak">Rak</option></select>
+        </div>
+        <div id="stockTableWrap"></div>
+        <section class="section-block" aria-labelledby="usageHistoryTitle"><div class="section-heading"><div><p class="eyebrow">Riwayat pemakaian</p><h2 id="usageHistoryTitle">Masak terakhir</h2></div></div><div id="usageHistory"></div></section>
+      </section>
+
+      <section id="view-shopping" class="view" aria-labelledby="shoppingTitle">
+        <div class="page-heading">
+          <div><p class="eyebrow">Belanja seperlunya</p><h1 id="shoppingTitle">Daftar belanja</h1><p>Kekurangan resep masuk ke sini. Item hanya digabung kalau satuannya kompatibel.</p></div>
+          <button class="secondary-button" id="addShoppingBtn">Tambah manual</button>
+        </div>
+        <div id="shoppingList"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <div id="modalRoot"></div>
+
+  <script src="./app1.js"></script>
+  <script src="./app2.js"></script>
+  <script src="./app3.js"></script>
+  <script src="./app4.js"></script>
+  <script src="./app5.js"></script>
+</body>
+</html>
