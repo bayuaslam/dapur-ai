@@ -1,4 +1,7 @@
-function i(name, amount, unit, optional=false, note='') { return { id: crypto.randomUUID(), name, amount, unit, optional, note }; }
+/* Dapur AI boot helpers (app1) - tanpa dependensi, tidak boleh throw. */
+function safeUUID(){try{if(typeof crypto!=="undefined"&&crypto&&typeof crypto.randomUUID==="function")return crypto.randomUUID();}catch(e){}try{if(typeof crypto!=="undefined"&&crypto&&typeof crypto.getRandomValues==="function"){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return ("0"+x.toString(16)).slice(-2)}).join("");return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20)}}catch(e){}return "id-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,6);}
+function safeClone(o){try{if(typeof structuredClone!=="undefined")return structuredClone(o);}catch(e){}return JSON.parse(JSON.stringify(o));}
+function i(name, amount, unit, optional, note){ if(optional===undefined)optional=false; if(note===undefined)note=''; var _id; try{ _id=safeUUID(); }catch(_e){ _id='id-'+Date.now()+'-'+Math.floor(Math.random()*1e9); } return { id:_id, name:name, amount:amount, unit:unit, optional:optional, note:note }; }
 
 const DB_NAME = 'dapur-marlon-db';
 const DB_VERSION = 1;
@@ -42,7 +45,7 @@ const pixabayLicense = {
   note: 'Sumber pencarian foto sudah disiapkan, tetapi seed tidak menampilkan foto acak sebelum aset spesifik dan URL stabil diverifikasi.'
 };
 
-const seedRecipes = [
+var seedRecipes = safeBuildSeed([
   {
     id: 'sop-bening', title: 'Sop Bening Sederhana', category: 'Sayur', mainIngredient: 'Kentang & wortel',
     description: 'Sop rumahan ringan dengan kentang, wortel, kubis, daun bawang, dan seledri.',
@@ -228,4 +231,8 @@ const seedRecipes = [
       'Masukkan daun bawang di akhir bila tersedia.'
     ], notes: 'Tidak perlu kaldu tambahan jika saus tiram sudah cukup asin dan gurih.'
   }
-];
+]);
+function safeBuildSeed(list){ var out=[]; for(var k=0;k<list.length;k++){ try{ var r=list[k]; if(r&&r.id&&r.title&&Array.isArray(r.ingredients)&&Array.isArray(r.steps)) out.push(r); }catch(e){ try{ if(typeof console!=="undefined") console.warn("seed rusak, dilewati", e); }catch(_){} } } return out; }
+try{ if(!Array.isArray(seedRecipes)) seedRecipes=[]; }catch(_e){ try{ seedRecipes=[]; }catch(_){} }
+try{ if(typeof window!=="undefined"){ window.seedRecipes=seedRecipes; window.safeUUID=safeUUID; window.safeClone=safeClone; } }catch(e){}
+try{ if(typeof globalThis!=="undefined"){ globalThis.seedRecipes=seedRecipes; } }catch(e){}

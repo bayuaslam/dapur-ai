@@ -12,7 +12,7 @@ function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
 
 function openRecipeDetail(id){
   const r=state.recipes.find(x=>x.id===id); if(!r)return; state.selectedRecipeId=id; const servings=r.servings; const match=recipeMatch(r,servings); const [label,cls]=statusMeta(match.status);
-  const media=r.image?.url?`<img src="${escapeHtml(r.image.url)}" alt="${escapeHtml(r.image.alt||r.title)}">`:`<div class="image-fallback"><strong>Foto belum tersedia</strong><small>Belum ada aset spesifik yang diverifikasi.</small></div>`;
+  const media=r.image?.url?`<img src="${escapeHtml(r.image.url)}" alt="${escapeHtml(r.image.alt||r.title)}" loading="lazy" onerror="this.outerHTML='<div class=\'image-fallback\'><strong>Foto gagal dimuat</strong><small>Gunakan unggahan sendiri atau sumber lain.</small></div>'">`:`<div class="image-fallback"><strong>Foto belum tersedia</strong><small>Belum ada aset spesifik yang diverifikasi.</small></div>`;
   renderModal(`<div class="modal-header"><div><p class="eyebrow">${escapeHtml(r.category)}</p><h2>${escapeHtml(r.title)}</h2></div><button class="close-button" data-close-modal aria-label="Tutup">×</button></div>
   <div class="modal-body detail-layout"><div><div class="detail-media">${media}</div><p class="source-note">${r.image?.sourcePageUrl?`Referensi foto berlisensi: <a href="${escapeHtml(r.image.sourcePageUrl)}" target="_blank" rel="noreferrer">Pixabay</a>. ${escapeHtml(r.image.note||'')}`:'Foto belum tersedia.'}</p><p>${escapeHtml(r.description||'')}</p><div class="detail-meta"><span class="status-label ${cls}">${label}</span><span class="meta-chip">${formatDuration(r)} ${r.timeEstimate?'· perkiraan':''}</span><span class="meta-chip">${r.servings} porsi ${r.servingsEstimate?'· perkiraan':''}</span></div><p><strong>Catatan</strong><br>${escapeHtml(r.notes||'Belum ada catatan.')}</p><button class="text-button" id="editCurrentRecipe">Edit resep</button></div>
   <div><div class="field-group"><label for="servingSelect">Porsi yang mau dimasak</label><input id="servingSelect" type="number" min="0.5" step="0.5" value="${servings}"></div><div id="ingredientMatchArea">${ingredientMatchTable(r,servings)}</div><h3>Langkah</h3><ol class="steps-list">${r.steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol></div></div>`,{wide:true,footer:`<button class="secondary-button" id="addMissingBtn">Tambah kekurangan ke belanja</button><button class="primary-button" id="startCookingBtn">Mulai memasak</button>`});
@@ -26,7 +26,7 @@ function ingredientMatchTable(r,servings){
 }
 
 function openCookingMode(r,servings){
-  const cookingSessionId = crypto.randomUUID();
+  const cookingSessionId = safeUUID();
   const usage=recipeMatch(r,servings).rows.filter(x=>!x.ing.optional && x.need.scaledAmount!=null).map(x=>({name:x.ing.name, amount:x.need.scaledAmount, unit:x.ing.unit}));
   renderModal(`<div class="modal-header"><div><p class="eyebrow">Mode memasak</p><h2>${escapeHtml(r.title)}</h2></div><button class="close-button" data-close-modal>×</button></div><div class="modal-body"><p>${servings} porsi. Centang langkah saat selesai.</p>${r.steps.map((s,idx)=>`<label class="cook-step"><input type="checkbox"><p><strong>Langkah ${idx+1}</strong><br>${escapeHtml(s)}</p></label>`).join('')}<div class="warning-box">Membuka mode ini belum mengurangi stok. Stok baru berkurang setelah ringkasan pemakaian dikonfirmasi.</div></div>`,{footer:`<button class="secondary-button" data-close-modal>Batal</button><button class="primary-button" id="finishCookingBtn">Selesai masak</button>`});
   document.querySelectorAll('.cook-step input').forEach(c=>c.onchange=()=>c.closest('.cook-step').classList.toggle('done',c.checked));
@@ -63,5 +63,5 @@ async function addMissingToShopping(r,servings){
 async function mergeShopping(item){
   const same=state.shopping.find(x=>!x.checked && normalizeName(x.name)===normalizeName(item.name) && unitGroup(x.unit) && unitGroup(x.unit)===unitGroup(item.unit));
   if(same){ const converted=convertAmount(item.amount,item.unit,same.unit); await db.put(STORE.shopping,{...same,amount:same.amount+converted,updatedAt:new Date().toISOString()}); }
-  else await db.put(STORE.shopping,{id:crypto.randomUUID(),checked:false,createdAt:new Date().toISOString(),...item});
+  else await db.put(STORE.shopping,{id:safeUUID(),checked:false,createdAt:new Date().toISOString(),...item});
 }
