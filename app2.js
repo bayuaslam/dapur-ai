@@ -1,4 +1,7 @@
-function i(name, amount, unit, optional=false, note='') { return { id: crypto.randomUUID(), name, amount, unit, optional, note }; }
+/* app2: i() sudah didefinisikan aman di app1.js — guard agar tidak duplikat dan tidak throw. */
+if (typeof safeUUID === 'undefined') { function safeUUID(){ try{ if(typeof crypto!=="undefined"&&crypto&&crypto.randomUUID) return crypto.randomUUID(); }catch(e){} return 'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10); } }
+if (typeof safeClone === 'undefined') { function safeClone(o){ try{ if(typeof structuredClone!=="undefined") return structuredClone(o); }catch(e){} return JSON.parse(JSON.stringify(o)); } }
+if (typeof i === 'undefined') { function i(name, amount, unit, optional, note){ if(optional===undefined)optional=false; if(note===undefined)note=''; return { id: (typeof safeUUID!=="undefined"?safeUUID():'id-'+Date.now()), name:name, amount:amount, unit:unit, optional:optional, note:note }; } }
 function normalizeUnit(unit='') { const u = String(unit).trim().toLowerCase(); return UNIT_ALIASES[u] || u; }
 function unitGroup(unit) { const normalized = normalizeUnit(unit); return Object.entries(UNIT_GROUPS).find(([,map]) => normalized in map)?.[0] || null; }
 function convertAmount(amount, fromUnit, toUnit) {
@@ -15,33 +18,94 @@ function formatDuration(recipe) { return `${(recipe.prepMinutes||0)+(recipe.cook
 function escapeHtml(s='') { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 class DB {
-  constructor(){ this.db=null; }
+  constructor(){ this.db=null; this.fallback=null; }
   async open(){
+    let idb = null;
+    try{ idb = (typeof indexedDB !== 'undefined') ? indexedDB : null; }catch(e){ idb = null; }
+    if(!idb) throw new Error('IndexedDB tidak tersedia di browser ini.');
     this.db = await new Promise((resolve,reject)=>{
-      const req=indexedDB.open(DB_NAME,DB_VERSION);
-      req.onupgradeneeded=()=>{ const db=req.result; Object.values(STORE).forEach(s=>{ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s,{keyPath:'id'}); }); };
-      req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error);
+      let req;
+      try{ req=indexedDB.open(DB_NAME,DB_VERSION); }catch(e){ reject(e); return; }
+      const timer=setTimeout(()=>{ try{ if(req && req.readyState==='pending'){ reject(new Error('IndexedDB timeout.')); } }catch(e){ reject(e); } }, 6000);
+      req.onupgradeneeded=()=>{ try{ const d=req.result; Object.values(STORE).forEach(s=>{ if(!d.objectStoreNames.contains(s)) d.createObjectStore(s,{keyPath:'id'}); }); }catch(e){} };
+      req.onsuccess=()=>{ clearTimeout(timer); resolve(req.result); };
+      req.onerror=()=>{ clearTimeout(timer); reject(req.error||new Error('IndexedDB gagal dibuka.')); };
+      req.onblocked=()=>{};
     });
   }
-  tx(store, mode='readonly'){ return this.db.transaction(store,mode).objectStore(store); }
-  async all(store){ return new Promise((res,rej)=>{ const r=this.tx(store).getAll(); r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error); }); }
-  async get(store,id){ return new Promise((res,rej)=>{ const r=this.tx(store).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error); }); }
-  async put(store,value){ return new Promise((res,rej)=>{ const r=this.tx(store,'readwrite').put(value);r.onsuccess=()=>res(value);r.onerror=()=>rej(r.error); }); }
-  async delete(store,id){ return new Promise((res,rej)=>{ const r=this.tx(store,'readwrite').delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error); }); }
+  tx(store, mode){ if(mode===undefined)mode='readonly'; return this.db.transaction(store,mode).objectStore(store); }
+  async all(store){ return new Promise((res,rej)=>{ let r; try{ r=this.tx(store).getAll(); }catch(e){ rej(e); return; } r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error); }); }
+  async get(store,id){ return new Promise((res,rej)=>{ let r; try{ r=this.tx(store).get(id); }catch(e){ rej(e); return; } r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error); }); }
+  async put(store,value){ return new Promise((res,rej)=>{ let r; try{ r=this.tx(store,'readwrite').put(value); }catch(e){ rej(e); return; } r.onsuccess=()=>res(value);r.onerror=()=>rej(r.error); }); }
+  async delete(store,id){ return new Promise((res,rej)=>{ let r; try{ r=this.tx(store,'readwrite').delete(id); }catch(e){ rej(e); return; } r.onsuccess=()=>res();r.onerror=()=>rej(r.error); }); }
 }
 
-const db = new DB();
+class MemoryDB {
+  constructor(){ this.mem={}; Object.values(STORE).forEach(s=>{ this.mem[s]=new Map(); }); this.loadFromLocalStorage(); }
+  loadFromLocalStorage(){ try{ if(typeof localStorage==='undefined') return; const raw=localStorage.getItem(DB_NAME+'-fallback-v1'); if(!raw) return; const data=JSON.parse(raw); Object.keys(this.mem).forEach(k=>{ (data[k]||[]).forEach(v=>{ if(v&&v.id) this.mem[k].set(v.id, v); }); }); }catch(e){} }
+  persist(){ try{ if(typeof localStorage==='undefined') return; const data={}; Object.keys(this.mem).forEach(k=>{ data[k]=Array.from(this.mem[k].values()); }); localStorage.setItem(DB_NAME+'-fallback-v1', JSON.stringify(data)); }catch(e){} }
+  async open(){}
+  async all(store){ return Array.from((this.mem[store]||new Map()).values()); }
+  async get(store,id){ return (this.mem[store]||new Map()).get(id); }
+  async put(store,value){ if(!value||!value.id) throw new Error('Data tanpa id.'); (this.mem[store]=this.mem[store]||new Map()).set(value.id, value); this.persist(); return value; }
+  async delete(store,id){ if(this.mem[store]) this.mem[store].delete(id); this.persist(); }
+}
+
+var db = new DB();
+var bootState = { usingFallback:false, dbError:'' };
 const state = { recipes: [], stock: [], shopping: [], transactions: [], view:'home', recFilter:'all', selectedRecipeId:null };
 
-async function init(){
-  try {
-    await db.open();
-    const recipes = await db.all(STORE.recipes);
-    if (!recipes.length) { for (const r of seedRecipes) await db.put(STORE.recipes, structuredClone(r)); }
-    await refreshState(); bindStaticEvents(); renderAll();
-  } catch (err) {
-    document.querySelector('#main').innerHTML = `<div class="empty-state"><strong>Data lokal gagal dibuka</strong><p>${escapeHtml(err?.message || 'IndexedDB tidak tersedia.')}</p></div>`;
+function getSeedList(){
+  try{ if(typeof seedRecipes!=='undefined' && Array.isArray(seedRecipes) && seedRecipes.length) return seedRecipes; }catch(e){}
+  try{ if(typeof window!=='undefined' && Array.isArray(window.seedRecipes) && window.seedRecipes.length) return window.seedRecipes; }catch(e){}
+  try{ if(typeof globalThis!=='undefined' && Array.isArray(globalThis.seedRecipes) && globalThis.seedRecipes.length) return globalThis.seedRecipes; }catch(e){}
+  return [];
+}
+
+async function seedIfEmpty(){
+  let existing=[];
+  try{ existing=await db.all(STORE.recipes); }catch(e){ existing=[]; }
+  if(existing && existing.length) return { seeded:false, count: existing.length };
+  const seeds=getSeedList();
+  let ok=0, fail=0;
+  for(const r of seeds){
+    try{
+      if(!r || !r.id || !r.title) { fail++; continue; }
+      await db.put(STORE.recipes, safeClone(r));
+      ok++;
+    }catch(e){ fail++; try{ if(typeof console!=='undefined') console.warn('seed gagal, lanjut:', (r&&r.id)||'?', e); }catch(_){} }
   }
+  return { seeded:true, count: ok, fail: fail };
+}
+
+var __dapurBootOnce = false;
+async function init(){
+  if(__dapurBootOnce) return; __dapurBootOnce=true;
+  try{ bindStaticEvents(); }catch(e){ try{ console.warn('bindStaticEvents gagal', e); }catch(_){} }
+  try{
+    await db.open();
+  }catch(err){
+    bootState.usingFallback=true; bootState.dbError=(err&&err.message)||String(err);
+    try{ if(typeof console!=='undefined') console.warn('IndexedDB gagal, pakai fallback lokal:', bootState.dbError); }catch(_){}
+    db=new MemoryDB();
+    try{ await db.open(); }catch(e2){}
+  }
+  try{
+    await seedIfEmpty();
+  }catch(e){ try{ console.warn('seeding gagal (isolasi):', e); }catch(_){} }
+  try{ await refreshState(); }catch(e){
+    try{ console.warn('refreshState gagal:', e); }catch(_){}
+    try{ state.recipes=getSeedList().map(safeClone); }catch(_2){}
+  }
+  if(!state.recipes.length){
+    try{ state.recipes=getSeedList().map(safeClone); }catch(e){}
+  }
+  try{ renderAll(); }catch(e){ try{ console.warn('render gagal:', e); }catch(_){} }
+  try{
+    if(bootState.usingFallback){
+      toast('Penyimpanan utama tidak tersedia - memakai penyimpanan cadangan di perangkat ini. Data tetap tersimpan di browser.');
+    }
+  }catch(e){}
 }
 
 async function refreshState(){
@@ -84,7 +148,7 @@ function statusMeta(status){
 }
 function daysUntil(date){ if(!date) return Infinity; const d=new Date(date+'T23:59:59'); return Math.ceil((d-Date.now())/86400000); }
 
-function renderAll(){ renderRecipes(); renderStock(); renderUsageHistory(); renderShopping(); renderRecommendations(); renderExpiry(); updateCounts(); }
+function renderAll(){ try{renderRecipes();}catch(e){try{console.warn('renderRecipes gagal',e);}catch(_){}} try{renderStock();}catch(e){try{console.warn('renderStock gagal',e);}catch(_){}} try{renderUsageHistory();}catch(e){} try{renderShopping();}catch(e){} try{renderRecommendations();}catch(e){try{console.warn('renderRecommendations gagal',e);}catch(_){}} try{renderExpiry();}catch(e){} try{updateCounts();}catch(e){} }
 function switchView(view){ state.view=view; document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`)); document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.view===view)); window.scrollTo({top:0,behavior:'smooth'}); }
 
 function recipeCard(recipe){
@@ -106,7 +170,7 @@ function renderRecipes(){
   const recipes=state.recipes.filter(r=>(!q || r.title.toLowerCase().includes(q)||r.ingredients.some(i=>i.name.toLowerCase().includes(q)))&&(cat==='all'||r.category===cat)&&(!fav||r.favorite));
   grid.innerHTML=recipes.length?recipes.map(recipeCard).join(''):`<div class="empty-state"><strong>Tidak ada resep yang cocok</strong><p>Coba kata kunci atau filter lain.</p></div>`;
   bindRecipeCardEvents(grid);
-  const sel=document.getElementById('categoryFilter'); if(sel && sel.options.length===1){ [...new Set(state.recipes.map(r=>r.category))].sort().forEach(c=>sel.add(new Option(c,c))); }
+  const sel=document.getElementById('categoryFilter'); if(sel && sel.options && sel.options.length===1){ [...new Set(state.recipes.map(r=>r.category))].sort().forEach(c=>sel.add(new Option(c,c))); }
 }
 
 function renderRecommendations(){
