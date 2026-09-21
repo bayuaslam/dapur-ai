@@ -18,6 +18,7 @@
       </button>
       <div class="top-actions">
         <span class="sync-note" title="Penyimpanan lokal di browser ini">Tersimpan di perangkat ini</span>
+        <button class="icon-button" id="cloudSettingsBtn" title="Pengaturan cloud" aria-label="Pengaturan cloud">☁</button>
         <button class="icon-button" id="exportBtn" title="Ekspor data" aria-label="Ekspor data">⇩</button>
       </div>
     </header>
@@ -49,6 +50,10 @@
             <div class="status-row">
               <span class="status-dot offline"></span>
               <div><strong>AI belum terhubung</strong><small>Parser lokal tetap bisa dipakai. Tidak ada integrasi AI palsu.</small></div>
+            </div>
+            <div class="status-row">
+              <span class="status-dot" id="cloudStatusDot"></span>
+              <div><strong id="cloudStatusText">Cloud belum terhubung</strong><small id="cloudStatusSub">Data tersimpan di perangkat ini. <button class="text-button" id="cloudSyncBtn" style="min-height:0;padding:0 4px">Atur / sinkron</button></small></div>
             </div>
           </aside>
         </div>
@@ -130,5 +135,6 @@
   <script src="./app3.js"></script>
   <script src="./app4.js"></script>
   <script src="./app5.js"></script>
+  <script src="./supabase-sync.js"></script>
 </body>
 </html>
