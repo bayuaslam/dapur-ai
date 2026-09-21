@@ -284,6 +284,6 @@ function bindStaticEvents(){
   document.getElementById('recipeSearch').oninput=renderRecipes; document.getElementById('categoryFilter').onchange=renderRecipes; document.getElementById('favoriteOnly').onchange=renderRecipes;
   document.getElementById('stockSearch').oninput=renderStock; document.getElementById('stockLocationFilter').onchange=renderStock;
   document.getElementById('manualStockBtn').onclick=()=>openStockModal(); document.getElementById('parseStockBtn').onclick=parseStockInput;
-  document.getElementById('addRecipeBtn').onclick=()=>openRecipeEditor(); document.getElementById('importRecipeBtn').onclick=openImportRecipe;
+  document.getElementById('addRecipeBtn').onclick=()=>openRecipeEditor(); document.getElementById('importRecipeBtn').onclick=openImportRecipe; try{ var ob=document.getElementById('onlineSearchBtn'); if(ob && typeof openOnlineSearch==='function') ob.onclick=openOnlineSearch; }catch(e){} try{ var jb=document.getElementById('importJsonBtn'); if(jb && typeof openJsonImport==='function') jb.onclick=openJsonImport; }catch(e){}
   document.getElementById('addShoppingBtn').onclick=()=>openShoppingModal(); document.getElementById('exportBtn').onclick=exportData;
 }

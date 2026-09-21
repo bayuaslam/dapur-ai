@@ -33,4 +33,158 @@ function formatDate(date){ return new Intl.DateTimeFormat('id-ID',{day:'2-digit'
 function formatDateTime(date){ return new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(date)); }
 
 
+
+/* ---- Perbanyak database resep dengan jujur: online (TheMealDB, gratis, tanpa key) + JSON ---- */
+function parseMeasureOnline(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  if (!s) return { amount: null, unit: '' };
+  var m = s.match(/^([\d.,\/\s]+)\s*(.*)$/);
+  if (!m) return { amount: null, unit: '' };
+  var num = m[1].trim(), rest = (m[2] || '').trim().toLowerCase();
+  var amount = null;
+  try {
+    if (/\//.test(num)) {
+      var parts = num.split(/\s+/);
+      var total = 0, ok = false;
+      for (var k = 0; k < parts.length; k++) {
+        var p = parts[k];
+        if (p.indexOf('/') >= 0) { var fr = p.split('/'); var a = parseFloat(String(fr[0]).replace(',', '.')); var b = parseFloat(String(fr[1]).replace(',', '.')); if (a >= 0 && b > 0) { total += a / b; ok = true; } }
+        else { var v = parseFloat(p.replace(',', '.')); if (!isNaN(v)) { total += v; ok = true; } }
+      }
+      if (ok) amount = total;
+    } else { var v2 = parseFloat(num.replace(',', '.')); if (!isNaN(v2)) amount = v2; }
+  } catch (e) { amount = null; }
+  if (amount == null) return { amount: null, unit: '' };
+  var known = ['kg','kilogram','g','gr','gram','l','liter','ml','mililiter','buah','butir','siung','batang','lembar','sachet','bungkus','ikat','sdm','sdt','cm','piring','pcs'];
+  var unit = '';
+  if (rest) {
+    var low = rest.replace(/\./g, '');
+    if (known.indexOf(low) >= 0) { try { unit = normalizeUnit(low); } catch (e) { unit = low; } }
+    else if (known.indexOf(low.replace(/s$/, '')) >= 0) { try { unit = normalizeUnit(low.replace(/s$/, '')); } catch (e) { unit = low; } }
+    else { unit = rest.split(/\s+/).slice(0, 2).join(' '); }
+  }
+  return { amount: amount, unit: unit };
+}
+
+function mealToDraft(meal) {
+  meal = meal || {};
+  var title = String(meal.strMeal || 'Resep online').slice(0, 100);
+  var ingredients = [];
+  for (var k = 1; k <= 20; k++) {
+    var nm = String(meal['strIngredient' + k] || '').trim();
+    if (!nm) continue;
+    var pm = parseMeasureOnline(meal['strMeasure' + k]);
+    ingredients.push({
+      id: safeUUID(),
+      name: nm,
+      amount: pm.amount,
+      unit: pm.unit || '',
+      optional: false,
+      note: pm.amount == null ? 'Takaran belum terdeteksi — periksa di sumber' : ''
+    });
+  }
+  var steps = String(meal.strInstructions || '').split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+  var area = String(meal.strArea || '').trim(), cat = String(meal.strCategory || '').trim();
+  return {
+    id: safeUUID(),
+    title: title,
+    category: cat || 'Lainnya',
+    mainIngredient: '',
+    description: 'Impor dari TheMealDB — periksa sebelum menyimpan.' + (area ? ' Area: ' + area + '.' : ''),
+    servings: 2, servingsEstimate: true,
+    prepMinutes: null, cookMinutes: null, timeEstimate: false,
+    favorite: false,
+    image: { type: meal.strMealThumb ? 'internet' : 'placeholder', exactMatch: false, url: meal.strMealThumb || undefined, alt: title, sourcePageUrl: meal.idMeal ? ('https://www.themealdb.com/meal/' + meal.idMeal) : '', creator: 'TheMealDB', licenseName: '', licenseUrl: '', note: 'Foto dari TheMealDB, bukan foto masakan sendiri.' },
+    source: { type: 'online', label: 'TheMealDB' + (area || cat ? ' (' + [area, cat].filter(Boolean).join(', ') + ')' : '') },
+    ingredients: ingredients,
+    steps: steps.length ? steps : ['Belum ada langkah terdeteksi — periksa di sumber.'],
+    notes: 'Hasil impor online. Takaran tanpa angka jelas ditandai dan harus dikoreksi sebelum dimasak.'
+  };
+}
+
+function openOnlineSearch() {
+  renderModal('<div class="modal-header"><div><p class="eyebrow">Database online</p><h2>Cari resep online</h2></div><button class="close-button" data-close-modal>×</button></div><div class="modal-body"><div class="warning-box">Sumber: <strong>TheMealDB</strong> (gratis, tanpa key). Hasil dibuka sebagai <strong>draft untuk direview</strong> — porsi selalu ditandai perkiraan, takaran tanpa angka harus dikoreksi. Tidak diklaim sebagai resep sendiri.</div><div class="inline-actions" style="margin:12px 0"><input id="onlineQuery" placeholder="cth: chicken, beef, soup…" style="flex:1"><button class="primary-button" id="onlineGoBtn">Cari</button></div><div id="onlineResults"><p class="helper">Ketik kata kunci lalu Cari.</p></div></div>', { footer: '<button class="secondary-button" data-close-modal>Tutup</button>' });
+  var go = function () {
+    var q = document.getElementById('onlineQuery').value.trim();
+    if (!q) { toast('Ketik kata kunci dulu.'); return; }
+    searchOnlineRecipes(q);
+  };
+  document.getElementById('onlineGoBtn').onclick = go;
+  document.getElementById('onlineQuery').addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+}
+
+async function searchOnlineRecipes(q) {
+  var root = document.getElementById('onlineResults');
+  if (typeof fetch === 'undefined') { root.innerHTML = '<p class="helper">Browser tidak mendukung fetch. Gunakan impor teks/JSON.</p>'; return; }
+  root.innerHTML = '<p class="helper">Mencari…</p>';
+  try {
+    var r = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=' + encodeURIComponent(q));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var j = await r.json();
+    var meals = (j && j.meals) || [];
+    if (!meals.length) { root.innerHTML = '<div class="empty-state"><strong>Tidak ketemu</strong><p>Coba kata kunci Inggris lain, misal “chicken”.</p></div>'; return; }
+    root.innerHTML = meals.slice(0, 12).map(function (m) {
+      return '<div class="shopping-item"><div aria-hidden="true">🍲</div><div><strong>' + escapeHtml(m.strMeal || '') + '</strong><small>' + escapeHtml([m.strArea, m.strCategory].filter(Boolean).join(' · ') || 'TheMealDB') + '</small></div><button class="text-button" data-online-preview="' + escapeHtml(m.idMeal || '') + '">Pratinjau</button></div>';
+    }).join('');
+    root.querySelectorAll('[data-online-preview]').forEach(function (b) {
+      b.onclick = function () { previewOnlineRecipe(b.getAttribute('data-online-preview')); };
+    });
+  } catch (e) {
+    root.innerHTML = '<div class="empty-state"><strong>Online gagal</strong><p>' + escapeHtml((e && e.message) || e) + '. Cek koneksi atau gunakan impor teks/JSON.</p></div>';
+  }
+}
+
+async function previewOnlineRecipe(id) {
+  try { toast('Mengambil detail resep…'); } catch (e) {}
+  try {
+    var r = await fetch('https://www.themealdb.com/api/json/v1/1/lookup.php?i=' + encodeURIComponent(id));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var j = await r.json();
+    var meal = j && j.meals && j.meals[0];
+    if (!meal) throw new Error('Detail tidak ditemukan.');
+    var draft = mealToDraft(meal);
+    openRecipeEditor(null, draft);
+  } catch (e) {
+    try { toast('Gagal ambil detail: ' + ((e && e.message) || e)); } catch (_) {}
+  }
+}
+
+function openJsonImport() {
+  var inp = document.getElementById('importJsonFile');
+  if (!inp) { toast('Input file tidak tersedia.'); return; }
+  inp.value = '';
+  inp.onchange = importJsonFile;
+  inp.click();
+}
+
+async function importJsonFile(ev) {
+  var f = ev && ev.target && ev.target.files && ev.target.files[0];
+  if (!f) return;
+  try {
+    var text = await f.text();
+    var parsed = JSON.parse(text);
+    var list = Array.isArray(parsed) ? parsed : (parsed.recipes || []);
+    if (!Array.isArray(list) || !list.length) { toast('File JSON tidak berisi daftar resep.'); return; }
+    var added = 0, skipped = 0, bad = 0;
+    for (var k = 0; k < list.length; k++) {
+      (function (r) {
+        try {
+          if (!r || !r.id || !r.title || !Array.isArray(r.ingredients) || !Array.isArray(r.steps)) { bad++; return; }
+          var exists = state.recipes.some(function (x) { return x.id === r.id; });
+          if (exists) { skipped++; return; }
+          if (!r.source) r.source = { type: 'import', label: 'File JSON' };
+          db.put(STORE.recipes, r).then(function () { added++; }).catch(function () { bad++; });
+        } catch (e) { bad++; }
+      })(list[k]);
+    }
+    setTimeout(async function () {
+      try { await refreshState(); renderAll(); } catch (e) {}
+      try { toast('Impor JSON: ' + added + ' ditambah, ' + skipped + ' sudah ada, ' + bad + ' rusak.'); } catch (e) {}
+    }, 300);
+  } catch (e) {
+    try { toast('Gagal baca JSON: ' + ((e && e.message) || e)); } catch (_) {}
+  }
+}
+try { if (typeof window !== 'undefined') { window.mealToDraft = mealToDraft; window.parseMeasureOnline = parseMeasureOnline; } } catch (e) {}
+
 (function bootDapur(){ try{ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', function(){ try{ init(); }catch(e){ console.warn(e); } }, { once:true }); } else { init(); } }catch(e){ try{ init(); }catch(_){} } })();
