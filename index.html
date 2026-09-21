@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4efe5" />
   <title>Dapur Marlon — Resep & Stok</title>
   <meta name="description" content="Koleksi resep pribadi, stok dapur, daftar belanja, dan rekomendasi masakan berdasarkan bahan yang benar-benar tersedia." />
-  <link rel="stylesheet" href="./styles.css?v=dfe0997" />
+  <link rel="stylesheet" href="./styles.css?v=2f6627c" />
 </head>
 <body>
   <a class="skip-link" href="#main">Lewati ke konten</a>
@@ -18,6 +18,7 @@
       </button>
       <div class="top-actions">
         <span class="sync-note" title="Penyimpanan lokal di browser ini">Tersimpan di perangkat ini</span>
+        <button class="icon-button" id="cloudSettingsBtn" title="Pengaturan cloud" aria-label="Pengaturan cloud">☁</button>
         <button class="icon-button" id="exportBtn" title="Ekspor data" aria-label="Ekspor data">⇩</button>
       </div>
     </header>
@@ -49,6 +50,10 @@
             <div class="status-row">
               <span class="status-dot offline"></span>
               <div><strong>AI belum terhubung</strong><small>Parser lokal tetap bisa dipakai. Tidak ada integrasi AI palsu.</small></div>
+            </div>
+            <div class="status-row">
+              <span class="status-dot" id="cloudStatusDot"></span>
+              <div><strong id="cloudStatusText">Cloud belum terhubung</strong><small id="cloudStatusSub">Data tersimpan di perangkat ini. <button class="text-button" id="cloudSyncBtn" style="min-height:0;padding:0 4px">Atur / sinkron</button></small></div>
             </div>
           </aside>
         </div>
@@ -125,10 +130,11 @@
   <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <div id="modalRoot"></div>
 
-  <script src="./app1.js?v=dfe0997"></script>
-  <script src="./app2.js?v=dfe0997"></script>
-  <script src="./app3.js?v=dfe0997"></script>
-  <script src="./app4.js?v=dfe0997"></script>
-  <script src="./app5.js?v=dfe0997"></script>
+  <script src="./app1.js?v=2f6627c"></script>
+  <script src="./app2.js?v=2f6627c"></script>
+  <script src="./app3.js?v=2f6627c"></script>
+  <script src="./app4.js?v=2f6627c"></script>
+  <script src="./app5.js?v=2f6627c"></script>
+  <script src="./supabase-sync.js?v=2f6627c"></script>
 </body>
 </html>
