@@ -62,6 +62,30 @@ function getSeedList(){
   return [];
 }
 
+
+async function restoreSeeds(){
+  try {
+    const seeds = getSeedList();
+    let added = 0;
+    for (const r of seeds) {
+      try {
+        if (!r || !r.id) continue;
+        let ex = null;
+        try { ex = await db.get(STORE.recipes, r.id); } catch (e) { ex = null; }
+        if (!ex) { await db.put(STORE.recipes, safeClone(r)); added++; }
+      } catch (e) {}
+    }
+    try { await refreshState(); } catch (e) {}
+    try { renderAll(); } catch (e) {}
+    try { toast(added > 0 ? added + ' resep awal dikembalikan.' : 'Semua resep awal sudah ada.'); } catch (e) {}
+    return added;
+  } catch (e) {
+    try { toast('Gagal mengembalikan resep awal.'); } catch (_) {}
+    return 0;
+  }
+}
+try { if (typeof window !== 'undefined') window.restoreSeeds = restoreSeeds; } catch (e) {}
+
 async function seedIfEmpty(){
   let existing=[];
   try{ existing=await db.all(STORE.recipes); }catch(e){ existing=[]; }
@@ -168,17 +192,48 @@ function renderRecipes(){
   const grid=document.getElementById('recipeGrid'); if(!grid) return;
   const q=(document.getElementById('recipeSearch')?.value||'').toLowerCase(); const cat=document.getElementById('categoryFilter')?.value||'all'; const fav=document.getElementById('favoriteOnly')?.checked||false;
   const recipes=state.recipes.filter(r=>(!q || r.title.toLowerCase().includes(q)||r.ingredients.some(i=>i.name.toLowerCase().includes(q)))&&(cat==='all'||r.category===cat)&&(!fav||r.favorite));
-  grid.innerHTML=recipes.length?recipes.map(recipeCard).join(''):`<div class="empty-state"><strong>Tidak ada resep yang cocok</strong><p>Coba kata kunci atau filter lain.</p></div>`;
+  if(recipes.length){ grid.innerHTML=recipes.map(recipeCard).join(''); }
+  else if(!state.recipes.length){ grid.innerHTML='<div class="empty-state"><strong>Belum ada resep tersimpan</strong><p>Mulai dari resep awal, impor teks, atau buat sendiri.</p><div class="inline-actions" style="justify-content:center;margin-top:12px"><button class="secondary-button" data-act="restore-seeds">Kembalikan resep awal</button><button class="secondary-button" data-act="import-recipe">Impor dari teks</button><button class="primary-button" data-act="add-recipe">Tambah resep</button></div></div>'; }
+  else{ grid.innerHTML='<div class="empty-state"><strong>Tidak ada resep yang cocok</strong><p>Coba kata kunci atau filter lain.</p><div class="inline-actions" style="justify-content:center;margin-top:12px"><button class="text-button" data-act="reset-filter">Reset filter</button></div></div>'; }
   bindRecipeCardEvents(grid);
-  const sel=document.getElementById('categoryFilter'); if(sel && sel.options && sel.options.length===1){ [...new Set(state.recipes.map(r=>r.category))].sort().forEach(c=>sel.add(new Option(c,c))); }
+  try {
+    grid.querySelectorAll('[data-act]').forEach(function(b){
+      b.onclick = function(){
+        var a = b.getAttribute('data-act');
+        if(a==='restore-seeds' && typeof restoreSeeds==='function') restoreSeeds();
+        else if(a==='import-recipe' && typeof openImportRecipe==='function') openImportRecipe();
+        else if(a==='add-recipe' && typeof openRecipeEditor==='function') openRecipeEditor();
+        else if(a==='reset-filter'){
+          try{
+            var q=document.getElementById('recipeSearch'); if(q) q.value='';
+            var cf=document.getElementById('categoryFilter'); if(cf) cf.value='all';
+            var fv=document.getElementById('favoriteOnly'); if(fv) fv.checked=false;
+          }catch(e){}
+          renderRecipes();
+        }
+      };
+    });
+  } catch(e){}
+  try{ const sel=document.getElementById('categoryFilter'); if(sel && sel.options && sel.options.length===1){ [...new Set(state.recipes.map(r=>r.category))].sort().forEach(function(c){ try{ if(typeof Option!=='undefined') sel.add(new Option(c,c)); else { var o=document.createElement('option'); o.value=c; o.textContent=c; sel.add(o); } }catch(e){} }); } }catch(e){}
 }
 
 function renderRecommendations(){
   const root=document.getElementById('homeRecommendations'); if(!root) return;
   let list=state.recipes.map(r=>({r,m:recipeMatch(r)})).sort((a,b)=>(b.m.expiryBoost-a.m.expiryBoost)||(b.m.score-a.m.score));
   if(state.recFilter==='ready') list=list.filter(x=>x.m.status==='ready'); if(state.recFilter==='close') list=list.filter(x=>x.m.status==='close');
-  root.innerHTML=list.length?list.slice(0,6).map(x=>recipeCard(x.r)).join(''):`<div class="empty-state"><strong>Belum ada resep di kelompok ini</strong><p>Tambah atau koreksi stok untuk memperbarui rekomendasi.</p></div>`;
+  if(list.length){ root.innerHTML=list.slice(0,6).map(x=>recipeCard(x.r)).join(''); }
+  else if(!state.recipes.length){ root.innerHTML='<div class="empty-state"><strong>Belum ada resep tersimpan</strong><p>Tambahkan resep dulu biar rekomendasi bisa jalan.</p><div class="inline-actions" style="justify-content:center;margin-top:12px"><button class="secondary-button" data-act-rec="restore">Kembalikan resep awal</button><button class="primary-button" data-act-rec="add">Tambah resep</button></div></div>'; }
+  else{ root.innerHTML='<div class="empty-state"><strong>Belum ada resep di kelompok ini</strong><p>Tambah atau koreksi stok untuk memperbarui rekomendasi.</p></div>'; }
   bindRecipeCardEvents(root);
+  try {
+    root.querySelectorAll('[data-act-rec]').forEach(function(b){
+      b.onclick = function(){
+        var a = b.getAttribute('data-act-rec');
+        if(a==='restore' && typeof restoreSeeds==='function') restoreSeeds();
+        else if(a==='add' && typeof openRecipeEditor==='function') openRecipeEditor();
+      };
+    });
+  } catch(e){}
 }
 
 function renderExpiry(){
