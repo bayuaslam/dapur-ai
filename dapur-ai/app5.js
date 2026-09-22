@@ -15,9 +15,62 @@ function openImportRecipe(){
   renderModal(`<div class="modal-header"><div><p class="eyebrow">Impor resep</p><h2>Tempel teks atau percakapan</h2></div><button class="close-button" data-close-modal>×</button></div><div class="modal-body"><div class="warning-box"><strong>AI belum terhubung.</strong> Versi ini memakai ekstraksi lokal sederhana dan tidak mengarang takaran atau waktu yang tidak ada.</div><label for="importText"><strong>Teks resep</strong></label><textarea id="importText" rows="14" placeholder="Tempel resep di sini…"></textarea></div>`,{footer:`<button class="secondary-button" data-close-modal>Batal</button><button class="primary-button" id="extractRecipeBtn">Tinjau hasil ekstraksi</button>`});
   document.getElementById('extractRecipeBtn').onclick=()=>{const text=document.getElementById('importText').value.trim();if(!text){toast('Tempel teks resep dulu.');return;}const draft=parseRecipeText(text);openRecipeEditor(null,draft);};
 }
+
+function parseIdNumber(s){
+  s = String(s == null ? '' : s).trim().replace(/\s+/g, ' ');
+  var m = s.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (m) { var b = Number(m[3]); if (b > 0) return Number(m[1]) + Number(m[2]) / b; }
+  m = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (m) { var d = Number(m[2]); if (d > 0) return Number(m[1]) / d; }
+  var v = parseFloat(s.replace(',', '.'));
+  return isNaN(v) ? null : v;
+}
+function isKnownUnit(u){
+  try {
+    u = String(u || '').trim().toLowerCase();
+    if (!u) return false;
+    if (typeof UNIT_GROUPS !== 'undefined') {
+      var keys = Object.keys(UNIT_GROUPS).map(function (g) { return Object.keys(UNIT_GROUPS[g]); });
+      var flat = []; keys.forEach(function (k) { flat = flat.concat(k); });
+      if (flat.indexOf(u) >= 0) return true;
+    }
+    if (typeof UNIT_ALIASES !== 'undefined' && UNIT_ALIASES[u]) return true;
+    return false;
+  } catch (e) { return false; }
+}
+function parseIdIngredient(line){
+  var raw = String(line == null ? '' : line).replace(/^(?:[-*•]\s*|\d+[.)]\s+)/, '').trim();
+  if (!raw) return null;
+  var m = raw.match(/^(secukupnya|seperlunya)\s+(.+)$/i);
+  if (m) return { id: safeUUID(), name: m[2].trim(), amount: null, unit: '', optional: /sesuai selera/i.test(raw), note: 'Takaran ' + m[1].toLowerCase() + ' — koreksi' };
+  m = raw.match(/^(.+?)\s+secukupnya$/i);
+  if (m && m[1].trim()) return { id: safeUUID(), name: m[1].trim(), amount: null, unit: '', optional: /sesuai selera/i.test(raw), note: 'Takaran secukupnya — koreksi' };
+  m = raw.match(/^([\d.,\/\s]+?)\s*([A-Za-z]+)\s*(.*)$/);
+  if (m) {
+    var amount = parseIdNumber(m[1]);
+    var unitRaw = m[2].toLowerCase();
+    var rest = (m[3] || '').trim();
+    if (amount != null && rest) {
+      if (isKnownUnit(unitRaw)) {
+        var u = unitRaw; try { u = normalizeUnit(unitRaw); } catch (e) {}
+        return { id: safeUUID(), name: rest, amount: amount, unit: u, optional: /opsional|sesuai selera/i.test(raw), note: '' };
+      }
+      return { id: safeUUID(), name: (m[2] + ' ' + rest).trim(), amount: amount, unit: '', optional: /opsional|sesuai selera/i.test(raw), note: 'Satuan tidak tertulis — periksa' };
+    }
+  }
+  var oldRx = /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|ons|g|gram|ml|cc|l|liter|buah|butir|siung|batang|lembar|sachet|bungkus|ikat|sdm|sdt|cm|piring|ruas|ekor|gelas|genggam)\b/i;
+  var m2 = raw.match(oldRx);
+  if (m2) {
+    var uu = m2[3]; try { uu = normalizeUnit(m2[3]); } catch (e) {}
+    return { id: safeUUID(), name: m2[1].replace(/^[-*•]\s*/, '').trim(), amount: Number(String(m2[2]).replace(',', '.')), unit: uu, optional: /opsional|sesuai selera/i.test(raw), note: '' };
+  }
+  return { id: safeUUID(), name: raw, amount: null, unit: '', optional: /sesuai selera/i.test(raw), note: 'Takaran belum terdeteksi' };
+}
+try { if (typeof window !== 'undefined') { window.parseIdNumber = parseIdNumber; window.parseIdIngredient = parseIdIngredient; } } catch (e) {}
+
 function parseRecipeText(text){
   const lines=text.split('\n').map(x=>x.trim()).filter(Boolean); const title=(lines[0]||'Resep impor').replace(/^#+\s*/,'').slice(0,100); let mode=''; const ingredients=[],steps=[]; const amountRx=/^(?:[-*•]\s*)?(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|ons|g|gram|ml|cc|l|liter|buah|butir|siung|batang|lembar|sachet|bungkus|ikat|sdm|sdt|cm)\b/i;
-  for(const line of lines.slice(1)){ if(/bahan/i.test(line)&&line.length<40){mode='ingredients';continue;} if(/cara|langkah/i.test(line)&&line.length<60){mode='steps';continue;} if(mode==='ingredients'){const m=line.match(amountRx); if(m) ingredients.push({id:safeUUID(),name:m[1].replace(/^[-*•]\s*/,''),amount:Number(m[2].replace(',','.')),unit:normalizeUnit(m[3]),optional:/opsional/i.test(line),note:''}); else ingredients.push({id:safeUUID(),name:line.replace(/^[-*•]\s*/,''),amount:null,unit:'',optional:false,note:'Takaran belum terdeteksi'});} else if(mode==='steps') steps.push(line.replace(/^\d+[.)]\s*/,'')); }
+  for(const line of lines.slice(1)){ if(/bahan/i.test(line)&&line.length<40){mode='ingredients';continue;} if(/cara|langkah/i.test(line)&&line.length<60){mode='steps';continue;} if(mode==='ingredients'){var pi=parseIdIngredient(line); if(pi) ingredients.push(pi);} else if(mode==='steps') steps.push(line.replace(/^\d+[.)]\s*/,'')); }
   return {id:safeUUID(),title,category:'Lainnya',mainIngredient:'',description:'Hasil impor teks — periksa sebelum menyimpan.',servings:2,servingsEstimate:true,prepMinutes:null,cookMinutes:null,timeEstimate:false,favorite:false,image:{type:'placeholder',exactMatch:false,alt:title,sourcePageUrl:'',creator:'',...pixabayLicense},source:{type:'import',label:'Teks impor'},ingredients,steps,notes:'Periksa kembali hasil ekstraksi lokal sebelum disimpan.'};
 }
 
@@ -55,7 +108,7 @@ function parseMeasureOnline(raw) {
     } else { var v2 = parseFloat(num.replace(',', '.')); if (!isNaN(v2)) amount = v2; }
   } catch (e) { amount = null; }
   if (amount == null) return { amount: null, unit: '' };
-  var known = ['kg','kilogram','ons','on','g','gr','gram','l','liter','ml','mililiter','cc','buah','butir','siung','batang','lembar','sachet','bungkus','ikat','sdm','sdt','cm','piring','pcs'];
+  var known = ['kg','kilogram','ons','on','g','gr','gram','l','liter','ml','mililiter','cc','buah','butir','siung','batang','lembar','sachet','bungkus','ikat','sdm','sdt','cm','piring','ruas','ekor','gelas','genggam','pcs'];
   var unit = '';
   if (rest) {
     var low = rest.replace(/\./g, '');
