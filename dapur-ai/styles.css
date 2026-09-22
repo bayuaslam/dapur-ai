@@ -735,3 +735,120 @@ textarea { resize: vertical; line-height: 1.5; }
   border-left: 4px solid var(--c-primary);
   border-radius: 0 var(--r-sm) var(--r-sm) 0;
 }
+
+/* =========================================================
+   REDESAIN 2 — Warung Editorial (playful, tidak kaku)
+   Referensi: pola NYT Cooking (recipe box, grocery list,
+   langkah bertahap, serif editorial), pola kartu aplikasi
+   resep mobile (foto + chip + hati + bottom nav), tren
+   editorial Awwwards (tipografi besar, satu aksen berani,
+   stiker miring, tekstur kertas).
+   Hanya presentasi: markup, ID, dan JS tidak berubah.
+   ========================================================= */
+:root {
+  --c-chili:     #b33926;   /* cabai — aksi & sorotan (putih di atasnya 5.95:1) */
+  --c-chili-bg:  #fbe9e4;
+  --c-chili-ink: #7a2a1d;   /* teks di atas chili-bg (8.21:1) */
+  --font-hand:   "Caveat", "Segoe Print", cursive;
+}
+
+body {
+  background-image: radial-gradient(rgba(35, 48, 31, .055) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+
+/* Merek miring playful */
+.brand-mark { background: var(--c-chili); transform: rotate(-5deg); }
+
+/* Eyebrow jadi stiker */
+.hero-copy .eyebrow {
+  display: inline-block;
+  background: var(--c-chili); color: #fff;
+  padding: 4px 12px; border-radius: var(--r-pill);
+  transform: rotate(-1.5deg);
+  letter-spacing: .06em;
+}
+
+/* Tombol chunky dengan hard-shadow */
+.primary-button {
+  background: var(--c-chili); border-color: var(--c-chili);
+  border-width: 2px;
+  box-shadow: 3px 3px 0 var(--c-ink);
+  transition: transform .08s ease, box-shadow .08s ease, background .12s ease;
+}
+.primary-button:hover { background: var(--c-chili); border-color: var(--c-chili); transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--c-ink); }
+.primary-button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--c-ink); }
+
+/* Nomor edisi otomatis di judul section (01, 02, …) */
+#main { counter-reset: dapur-section; }
+.section-block h2::before, .page-heading h2::before {
+  counter-increment: dapur-section;
+  content: "0" counter(dapur-section);
+  font-family: var(--font-body);
+  font-size: 12px; font-weight: 800; letter-spacing: .1em;
+  color: var(--c-chili);
+  border: 1.5px solid var(--c-chili);
+  border-radius: var(--r-pill);
+  padding: 2px 8px; margin-right: 8px;
+  vertical-align: 3px; white-space: nowrap;
+}
+.page-heading h1::before {
+  counter-increment: dapur-section;
+  content: "0" counter(dapur-section);
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px; font-weight: 800; letter-spacing: .1em;
+  color: var(--c-chili);
+  margin-bottom: 6px;
+}
+
+/* Status jadi stiker miring */
+.status-label { transform: rotate(-1.5deg); box-shadow: 2px 2px 0 rgba(35, 48, 31, .18); }
+.status-close, .status-missing { background: var(--c-chili-bg); border-color: #e0a89e; }
+.status-close { color: var(--c-chili-ink); }
+.status-close::before { content: "⚠"; }
+
+/* Kartu sorotan: resep paling cocok tampil besar ala kurator.
+   Hanya di beranda (bukan di hasil pencarian/filter) agar stabil. */
+#homeRecommendations .recipe-card:first-child {
+  flex-direction: column;
+  border: 2px solid var(--c-ink);
+  box-shadow: 5px 5px 0 rgba(35, 48, 31, .9);
+}
+#homeRecommendations .recipe-card:first-child .recipe-media {
+  width: auto; min-width: 0; aspect-ratio: 21 / 9;
+}
+#homeRecommendations .recipe-card:first-child .favorite-button {
+  width: var(--tap); height: var(--tap); font-size: 19px; top: 10px; right: 10px;
+}
+#homeRecommendations .recipe-card:first-child .recipe-title-button { font-size: 22px; }
+@media (min-width: 1024px) {
+  #homeRecommendations .recipe-card:first-child { grid-column: 1 / -1; }
+}
+
+/* Thumb list diperbesar + favorit kembali 40px */
+.recipe-card .recipe-media { width: 140px; min-width: 140px; }
+.recipe-card .favorite-button { width: 40px; height: 40px; font-size: 17px; top: 8px; right: 8px; }
+
+/* Tab aktif rasa cabai */
+.nav-tab.active { background: var(--c-chili-bg); color: var(--c-chili-ink); }
+.segment.active { color: var(--c-chili); border-bottom-color: var(--c-chili); }
+
+/* Nota belanja: kertas bergaris halus */
+.shopping-item {
+  background-image: repeating-linear-gradient(180deg, transparent 0 27px, rgba(35, 48, 31, .07) 27px 28px);
+}
+.shopping-item .qty { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+
+/* Coretan tangan untuk teks ramah */
+.empty-state p, .image-fallback small { font-family: var(--font-hand); font-size: 17px; }
+.empty-state strong { font-size: 24px; }
+
+/* Modal playful: border tegas + shadow */
+.modal { border: 2px solid var(--c-ink); box-shadow: 6px 6px 0 rgba(35, 48, 31, .9); }
+
+/* Gerak dikurangi: stiker tegak, tombol tanpa geser */
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark, .hero-copy .eyebrow, .status-label { transform: none; }
+  .primary-button, .primary-button:hover, .primary-button:active { transform: none; }
+}
