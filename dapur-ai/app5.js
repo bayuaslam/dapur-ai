@@ -66,21 +66,48 @@ function parseMeasureOnline(raw) {
   return { amount: amount, unit: unit };
 }
 
+
+/* ---- Indonesia dulu: kamus deterministik (bukan AI, bukan karangan) ---- */
+var ID_EN_QUERY = {ayam:'chicken',sapi:'beef',kambing:'goat',domba:'lamb',babi:'pork',bebek:'duck',ikan:'fish',udang:'shrimp',cumi:'squid',kepiting:'crab',telur:'egg',tahu:'tofu',tempe:'tempeh',mie:'noodle',bihun:'vermicelli',nasi:'rice',beras:'rice',sup:'soup',soto:'soup',sayur:'vegetable',jamur:'mushroom',kentang:'potato',tomat:'tomato',bawang:'onion',cabai:'chili',cabe:'chili',santan:'coconut',kelapa:'coconut',gula:'sugar',garam:'salt',pedas:'spicy',manis:'sweet',asam:'sour',goreng:'fried',rebus:'boiled',bakar:'grilled',panggang:'roasted',kukus:'steamed',kacang:'peanut',jagung:'corn',bayam:'spinach',wortel:'carrot',kubis:'cabbage',jahe:'ginger',kunyit:'turmeric',serai:'lemongrass',santan2:'coconut'};
+var EN_ID_PHRASE = {'chicken breast':'dada ayam','chicken thigh':'paha ayam','chicken wing':'sayap ayam','black pepper':'lada hitam','white pepper':'merica','red onion':'bawang merah','spring onion':'daun bawang','coconut milk':'santan','soy sauce':'kecap asin','oyster sauce':'saus tiram','fish sauce':'kecap ikan','palm sugar':'gula aren','brown sugar':'gula palem','coconut sugar':'gula kelapa','bay leaf':'daun salam','lime leaf':'daun jeruk','peanut oil':'minyak kacang','olive oil':'minyak zaitun','green bean':'buncis','long bean':'kacang panjang'};
+var EN_ID_WORD = {chicken:'ayam',beef:'daging sapi',pork:'daging babi',duck:'bebek',goat:'kambing',fish:'ikan',shrimp:'udang',prawn:'udang',squid:'cumi',crab:'kepiting',egg:'telur',eggs:'telur',tofu:'tahu',tempeh:'tempe',garlic:'bawang putih',shallot:'bawang merah',onion:'bawang bombai',chili:'cabai',chilli:'cabai',pepper:'merica',salt:'garam',sugar:'gula',oil:'minyak',flour:'tepung terigu',rice:'beras',noodle:'mie',noodles:'mie',milk:'susu',coconut:'kelapa',tomato:'tomat',potato:'kentang',carrot:'wortel',cabbage:'kubis',spinach:'bayam',mushroom:'jamur',ginger:'jahe',turmeric:'kunyit',lemongrass:'serai',galangal:'lengkuas',lime:'jeruk nipis',cinnamon:'kayu manis',clove:'cengkeh',nutmeg:'pala',coriander:'ketumbar',cumin:'jintan',candlenut:'kemiri',tamarind:'asam jawa',vinegar:'cuka',honey:'madu',butter:'mentega',margarine:'margarin',cheese:'keju',cream:'krim',bread:'roti',cake:'kue',soup:'sup',fried:'goreng',grilled:'bakar',boiled:'rebus',steamed:'kukus',roasted:'panggang',spicy:'pedas',sweet:'manis',sour:'asam',black:'hitam',white:'putih',red:'merah',green:'hijau',large:'besar',small:'kecil',dried:'kering',fresh:'segar',ground:'bubuk',powdered:'bubuk',minced:'cincang',sliced:'iris',chopped:'cincang',water:'air',ice:'es',bean:'kacang',peanut:'kacang tanah',corn:'jagung',eggplant:'terong',cucumber:'timun',basil:'kemangi',celery:'seledri',carrot2:'wortel'};
+function translateQueryIdEn(q){
+  var tokens=String(q||'').toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  var mapped=tokens.map(function(t){return ID_EN_QUERY[t]||t;});
+  return { translated: mapped.join(' '), tokens: mapped.filter(function(t,i){return t.length>2 && mapped.indexOf(t)===i;}) };
+}
+function translateFoodId(name){
+  var low=String(name||'').toLowerCase().trim().replace(/\s+/g,' ');
+  if(!low) return { text: String(name||''), full: false };
+  if(EN_ID_PHRASE[low]) { var ph = EN_ID_PHRASE[low]; return { text: ph.charAt(0).toUpperCase()+ph.slice(1), full: true }; }
+  var words=low.split(' ');
+  var out=[], allOk=true;
+  for(var k=0;k<words.length;k++){ var w=EN_ID_WORD[words[k]]; if(w){out.push(w);} else {out.push(words[k]); allOk=false;} }
+  // coba gabungan frasa di dalam nama panjang
+  var joined=out.join(' ');
+  for(var ph in EN_ID_PHRASE){ if((' '+low+' ').indexOf(' '+ph+' ')>=0){ joined=joined.split(' ').join(' '); } }
+  return { text: joined.charAt(0).toUpperCase()+joined.slice(1), full: allOk };
+}
+try { if (typeof window !== 'undefined') { window.translateQueryIdEn = translateQueryIdEn; window.translateFoodId = translateFoodId; } } catch (e) {}
+
 function mealToDraft(meal) {
   meal = meal || {};
-  var title = String(meal.strMeal || 'Resep online').slice(0, 100);
+  var rawTitle = String(meal.strMeal || 'Resep online').slice(0, 100);
+  var tTitle = translateFoodId(rawTitle);
+  var title = tTitle.text;
   var ingredients = [];
   for (var k = 1; k <= 20; k++) {
     var nm = String(meal['strIngredient' + k] || '').trim();
     if (!nm) continue;
     var pm = parseMeasureOnline(meal['strMeasure' + k]);
+    var tNm = translateFoodId(nm);
     ingredients.push({
       id: safeUUID(),
-      name: nm,
+      name: tNm.text,
       amount: pm.amount,
       unit: pm.unit || '',
       optional: false,
-      note: pm.amount == null ? 'Takaran belum terdeteksi — periksa di sumber' : ''
+      note: (pm.amount == null ? 'Takaran belum terdeteksi. ' : '') + (!tNm.full ? 'Asli: "'+nm+'" — periksa terjemahan.' : '')
     });
   }
   var steps = String(meal.strInstructions || '').split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
@@ -90,7 +117,7 @@ function mealToDraft(meal) {
     title: title,
     category: cat || 'Lainnya',
     mainIngredient: '',
-    description: 'Impor dari TheMealDB — periksa sebelum menyimpan.' + (area ? ' Area: ' + area + '.' : ''),
+    description: 'Impor dari TheMealDB (sumber Inggris, diterjemahkan otomatis sebagian) — periksa sebelum menyimpan.' + (tTitle.full ? '' : ' Judul asli: "'+rawTitle+'".') + (area ? ' Area: ' + area + '.' : ''),
     servings: 2, servingsEstimate: true,
     prepMinutes: null, cookMinutes: null, timeEstimate: false,
     favorite: false,
@@ -98,12 +125,12 @@ function mealToDraft(meal) {
     source: { type: 'online', label: 'TheMealDB' + (area || cat ? ' (' + [area, cat].filter(Boolean).join(', ') + ')' : '') },
     ingredients: ingredients,
     steps: steps.length ? steps : ['Belum ada langkah terdeteksi — periksa di sumber.'],
-    notes: 'Hasil impor online. Takaran tanpa angka jelas ditandai dan harus dikoreksi sebelum dimasak.'
+    notes: 'Hasil impor online. Takaran tanpa angka jelas ditandai; langkah masih bahasa Inggris — terjemahkan saat review.'
   };
 }
 
 function openOnlineSearch() {
-  renderModal('<div class="modal-header"><div><p class="eyebrow">Database online</p><h2>Cari resep online</h2></div><button class="close-button" data-close-modal>×</button></div><div class="modal-body"><div class="warning-box">Sumber: <strong>TheMealDB</strong> (gratis, tanpa key). Hasil dibuka sebagai <strong>draft untuk direview</strong> — porsi selalu ditandai perkiraan, takaran tanpa angka harus dikoreksi. Tidak diklaim sebagai resep sendiri.</div><div class="inline-actions" style="margin:12px 0"><input id="onlineQuery" placeholder="cth: chicken, beef, soup…" style="flex:1"><button class="primary-button" id="onlineGoBtn">Cari</button></div><div id="onlineResults"><p class="helper">Ketik kata kunci lalu Cari.</p></div></div>', { footer: '<button class="secondary-button" data-close-modal>Tutup</button>' });
+  renderModal('<div class="modal-header"><div><p class="eyebrow">Database online</p><h2>Cari resep online</h2></div><button class="close-button" data-close-modal>×</button></div><div class="modal-body"><div class="warning-box">Sumber: <strong>TheMealDB</strong> (gratis, tanpa key). Hasil dibuka sebagai <strong>draft untuk direview</strong> — boleh cari pakai bahasa Indonesia (otomatis dicari dalam bahasa Inggris), bahan diterjemahkan otomatis sebagian, langkah masih Inggris dan wajib diterjemahkan saat review.</div><div class="inline-actions" style="margin:12px 0"><input id="onlineQuery" placeholder="cth: ayam, ikan, sup…" style="flex:1"><button class="primary-button" id="onlineGoBtn">Cari</button></div><div id="onlineResults"><p class="helper">Ketik kata kunci lalu Cari.</p></div></div>', { footer: '<button class="secondary-button" data-close-modal>Tutup</button>' });
   var go = function () {
     var q = document.getElementById('onlineQuery').value.trim();
     if (!q) { toast('Ketik kata kunci dulu.'); return; }
@@ -117,13 +144,22 @@ async function searchOnlineRecipes(q) {
   var root = document.getElementById('onlineResults');
   if (typeof fetch === 'undefined') { root.innerHTML = '<p class="helper">Browser tidak mendukung fetch. Gunakan impor teks/JSON.</p>'; return; }
   root.innerHTML = '<p class="helper">Mencari…</p>';
+  var tq = (typeof translateQueryIdEn === 'function') ? translateQueryIdEn(q) : { translated: q, tokens: [] };
+  var attempts = [];
+  if (tq.translated && tq.translated.toLowerCase() !== q.toLowerCase()) attempts.push(tq.translated);
+  (tq.tokens || []).forEach(function (t) { if (attempts.indexOf(t) < 0) attempts.push(t); });
+  if (attempts.indexOf(q) < 0) attempts.push(q);
+  var meals = [], usedKw = q;
   try {
-    var r = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=' + encodeURIComponent(q));
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    var j = await r.json();
-    var meals = (j && j.meals) || [];
-    if (!meals.length) { root.innerHTML = '<div class="empty-state"><strong>Tidak ketemu</strong><p>Coba kata kunci Inggris lain, misal “chicken”.</p></div>'; return; }
-    root.innerHTML = meals.slice(0, 12).map(function (m) {
+    for (var qi = 0; qi < attempts.length; qi++) {
+      var r = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=' + encodeURIComponent(attempts[qi]));
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var j = await r.json();
+      if (j && j.meals && j.meals.length) { meals = j.meals; usedKw = attempts[qi]; break; }
+    }
+    if (!meals.length) { root.innerHTML = '<div class="empty-state"><strong>Tidak ketemu</strong><p>Coba kata kunci lain, Indonesia atau Inggris.</p></div>'; return; }
+    var kwInfo = (usedKw.toLowerCase() !== q.toLowerCase()) ? '<p class="helper">Mencari “'+escapeHtml(q)+'” sebagai “'+escapeHtml(usedKw)+'”. Hasil dibuka sebagai draft terjemahan.</p>' : '<p class="helper">Hasil dibuka sebagai draft — periksa terjemahan sebelum menyimpan.</p>';
+    root.innerHTML = kwInfo + meals.slice(0, 12).map(function (m) {
       return '<div class="shopping-item"><div aria-hidden="true">🍲</div><div><strong>' + escapeHtml(m.strMeal || '') + '</strong><small>' + escapeHtml([m.strArea, m.strCategory].filter(Boolean).join(' · ') || 'TheMealDB') + '</small></div><button class="text-button" data-online-preview="' + escapeHtml(m.idMeal || '') + '">Pratinjau</button></div>';
     }).join('');
     root.querySelectorAll('[data-online-preview]').forEach(function (b) {
