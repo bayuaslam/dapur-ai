@@ -16,7 +16,7 @@ function openImportRecipe(){
   document.getElementById('extractRecipeBtn').onclick=()=>{const text=document.getElementById('importText').value.trim();if(!text){toast('Tempel teks resep dulu.');return;}const draft=parseRecipeText(text);openRecipeEditor(null,draft);};
 }
 function parseRecipeText(text){
-  const lines=text.split('\n').map(x=>x.trim()).filter(Boolean); const title=(lines[0]||'Resep impor').replace(/^#+\s*/,'').slice(0,100); let mode=''; const ingredients=[],steps=[]; const amountRx=/^(?:[-*•]\s*)?(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|g|gram|ml|l|liter|buah|butir|siung|batang|lembar|sachet|bungkus|ikat|sdm|sdt|cm)\b/i;
+  const lines=text.split('\n').map(x=>x.trim()).filter(Boolean); const title=(lines[0]||'Resep impor').replace(/^#+\s*/,'').slice(0,100); let mode=''; const ingredients=[],steps=[]; const amountRx=/^(?:[-*•]\s*)?(.+?)\s+(\d+(?:[.,]\d+)?)\s*(kg|ons|g|gram|ml|cc|l|liter|buah|butir|siung|batang|lembar|sachet|bungkus|ikat|sdm|sdt|cm)\b/i;
   for(const line of lines.slice(1)){ if(/bahan/i.test(line)&&line.length<40){mode='ingredients';continue;} if(/cara|langkah/i.test(line)&&line.length<60){mode='steps';continue;} if(mode==='ingredients'){const m=line.match(amountRx); if(m) ingredients.push({id:safeUUID(),name:m[1].replace(/^[-*•]\s*/,''),amount:Number(m[2].replace(',','.')),unit:normalizeUnit(m[3]),optional:/opsional/i.test(line),note:''}); else ingredients.push({id:safeUUID(),name:line.replace(/^[-*•]\s*/,''),amount:null,unit:'',optional:false,note:'Takaran belum terdeteksi'});} else if(mode==='steps') steps.push(line.replace(/^\d+[.)]\s*/,'')); }
   return {id:safeUUID(),title,category:'Lainnya',mainIngredient:'',description:'Hasil impor teks — periksa sebelum menyimpan.',servings:2,servingsEstimate:true,prepMinutes:null,cookMinutes:null,timeEstimate:false,favorite:false,image:{type:'placeholder',exactMatch:false,alt:title,sourcePageUrl:'',creator:'',...pixabayLicense},source:{type:'import',label:'Teks impor'},ingredients,steps,notes:'Periksa kembali hasil ekstraksi lokal sebelum disimpan.'};
 }
@@ -55,7 +55,7 @@ function parseMeasureOnline(raw) {
     } else { var v2 = parseFloat(num.replace(',', '.')); if (!isNaN(v2)) amount = v2; }
   } catch (e) { amount = null; }
   if (amount == null) return { amount: null, unit: '' };
-  var known = ['kg','kilogram','g','gr','gram','l','liter','ml','mililiter','buah','butir','siung','batang','lembar','sachet','bungkus','ikat','sdm','sdt','cm','piring','pcs'];
+  var known = ['kg','kilogram','ons','on','g','gr','gram','l','liter','ml','mililiter','cc','buah','butir','siung','batang','lembar','sachet','bungkus','ikat','sdm','sdt','cm','piring','pcs'];
   var unit = '';
   if (rest) {
     var low = rest.replace(/\./g, '');
@@ -186,5 +186,30 @@ async function importJsonFile(ev) {
   }
 }
 try { if (typeof window !== 'undefined') { window.mealToDraft = mealToDraft; window.parseMeasureOnline = parseMeasureOnline; } } catch (e) {}
+
+
+/* ---- Impor Mustika Rasa: transkripsi jujur dari kitab 1967 ---- */
+function openMustikaImport(){
+  renderModal('<div class="modal-header"><div><p class="eyebrow">Kitab 1967</p><h2>Impor Mustika Rasa</h2></div><button class="close-button" data-close-modal>×</button></div><div class="modal-body"><div class="warning-box">Transkripsi dari buku <strong>Mustika Rasa (1967)</strong>. Tulis nomor halaman + daerah asal agar sumbernya jelas. Takaran memakai satuan Indonesia (ons, gram, liter, sdm, …). Yang tidak terbaca ditandai dan wajib dikoreksi.</div><div class="form-grid" style="margin-top:12px"><div class="field-group"><label>Judul resep</label><input id="mustikaTitle" placeholder="cth: Rawon"></div><div class="field-group"><label>Daerah asal</label><input id="mustikaArea" placeholder="cth: Jawa Timur"></div><div class="field-group"><label>Halaman buku</label><input id="mustikaPage" inputmode="numeric" placeholder="cth: 152"></div><div class="field-group"><label>Kategori</label><input id="mustikaCat" placeholder="cth: Sup"></div></div><label for="mustikaText" style="margin-top:12px"><strong>Tempel teks halaman buku</strong></label><textarea id="mustikaText" rows="12" placeholder="Tempel bahan + cara dari buku di sini…"></textarea></div>',{footer:'<button class="secondary-button" data-close-modal>Batal</button><button class="primary-button" id="mustikaGoBtn">Tinjau hasil</button>'});
+  document.getElementById('mustikaGoBtn').onclick=function(){
+    var text=document.getElementById('mustikaText').value.trim();
+    if(!text){toast('Tempel teks halaman buku dulu.');return;}
+    var draft=parseRecipeText(text);
+    var title=document.getElementById('mustikaTitle').value.trim();
+    var area=document.getElementById('mustikaArea').value.trim();
+    var page=document.getElementById('mustikaPage').value.trim();
+    var cat=document.getElementById('mustikaCat').value.trim();
+    if(title) draft.title=title.slice(0,100);
+    if(cat) draft.category=cat;
+    var label='Mustika Rasa (1967)';
+    if(page) label+=', hal. '+page;
+    if(area) label+=' — '+area;
+    draft.source={type:'book',label:label};
+    draft.description='Transkripsi Mustika Rasa — periksa sebelum menyimpan.';
+    draft.notes='Sumber: '+label+'. '+(draft.notes||'');
+    openRecipeEditor(null,draft);
+  };
+}
+try { if (typeof window !== 'undefined') window.openMustikaImport = openMustikaImport; } catch (e) {}
 
 (function bootDapur(){ try{ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', function(){ try{ init(); }catch(e){ console.warn(e); } }, { once:true }); } else { init(); } }catch(e){ try{ init(); }catch(_){} } })();
