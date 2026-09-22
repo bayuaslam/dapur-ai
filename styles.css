@@ -674,3 +674,64 @@ textarea { resize: vertical; line-height: 1.5; }
   .app-shell, #main { max-width: 1240px; }
   .recipe-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* =========================================================
+   OVERRIDE — Buku Catatan Dapur (anti dashboard generik)
+   Diadaptasi dari usulan: selector disesuaikan ke markup asli
+   (.hero-copy, .recipe-media, .segmented) agar tidak ada
+   aturan mati dan tidak ada fitur yang hilang.
+   - Status teknis (AI/cloud) disembunyikan dari hero; akses tetap
+     ada via tombol ☁ di topbar dan peringatan di modal impor.
+   - Gambar TIDAK dihapus total (itu menghilangkan tombol favorit
+     yang menempel di media + info visual): dijadikan thumbnail
+     kecil 112px. Bukan lagi gambar besar ala e-commerce.
+   ========================================================= */
+
+/* 1. Hero polos + status teknis keluar dari pandangan utama */
+.hero-copy { background: transparent; border: 0; padding: 0; }
+.hero-copy h1 { font-size: 28px; line-height: 1.15; letter-spacing: -.02em; margin-bottom: var(--s-4); }
+.status-panel .status-row:nth-child(2),
+.status-panel .status-row:nth-child(3) { display: none; }
+
+/* 2. Kartu resep horizontal padat (buku catatan, bukan e-commerce) */
+.recipe-card { flex-direction: row; min-height: 120px; }
+.recipe-card .recipe-media {
+  width: 112px; min-width: 112px; aspect-ratio: auto; align-self: stretch;
+}
+.recipe-card .favorite-button { width: 34px; height: 34px; font-size: 15px; top: 6px; right: 6px; }
+.recipe-card .recipe-body { padding: var(--s-3) var(--s-4); flex: 1; min-width: 0; }
+
+/* 3. Grid padat */
+.recipe-grid, #recipeGrid { gap: var(--s-2); }
+#homeRecommendations { gap: var(--s-2); }
+
+@media (min-width: 600px) {
+  .recipe-grid, #recipeGrid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .hero-copy h1 { font-size: 28px; }
+  .recipe-grid, #recipeGrid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s-2); }
+}
+@media (min-width: 1400px) {
+  .recipe-grid, #recipeGrid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+}
+
+/* 4. Filter sebagai tab garis (bukan pill) */
+.segmented {
+  background: transparent; border: 0; border-bottom: 1px solid var(--c-border);
+  border-radius: 0; padding: 0; gap: 0; margin-bottom: var(--s-4);
+}
+.segment {
+  background: transparent; border: 0; border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: var(--s-2) var(--s-4);
+  font-size: 14px; color: var(--c-ink-mute);
+  box-shadow: none;
+}
+.segment.active { background: transparent; color: var(--c-primary); border-bottom-color: var(--c-primary); box-shadow: none; }
+
+/* 5. Rekomendasi beranda sebagai daftar padat */
+#homeRecommendations .recipe-card {
+  border-left: 4px solid var(--c-primary);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
