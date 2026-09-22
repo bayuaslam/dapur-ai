@@ -1,8 +1,65 @@
+
+/* ---- Foto internet jujur: Wikimedia Commons (gratis, tanpa key, lisensi jelas) ---- */
+function stripTags(s){ return String(s == null ? '' : s).replace(/<[^>]*>/g, '').trim(); }
+async function searchCommonsPhotos(q){
+  if (typeof fetch === 'undefined') throw new Error('Browser tidak mendukung fetch.');
+  q = String(q || '').trim();
+  if (!q) throw new Error('Kata kunci foto kosong.');
+  var url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search'
+    + '&gsrsearch=' + encodeURIComponent('filetype:bitmap ' + q)
+    + '&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=640';
+  var r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  var j = await r.json();
+  var pages = (j.query && j.query.pages) || {};
+  var out = [];
+  Object.keys(pages).forEach(function (k) {
+    try {
+      var p = pages[k], ii = (p.imageinfo && p.imageinfo[0]) || {}, md = ii.extmetadata || {};
+      var thumb = ii.thumburl || ii.url || '';
+      if (!thumb) return;
+      out.push({
+        title: String(p.title || '').replace(/^File:/, ''),
+        thumb: thumb,
+        pageUrl: (md.DescriptionUrl && md.DescriptionUrl.value) || ('https://commons.wikimedia.org/wiki/' + encodeURIComponent(p.title || '')),
+        author: stripTags((md.Artist || {}).value).slice(0, 80) || 'Anonim',
+        license: stripTags((md.LicenseShortName || {}).value) || 'Lihat halaman sumber',
+        licenseUrl: stripTags((md.LicenseUrl || {}).value) || ''
+      });
+    } catch (e) {}
+  });
+  return out;
+}
+try { if (typeof window !== 'undefined') { window.searchCommonsPhotos = searchCommonsPhotos; } } catch (e) {}
+
 function openRecipeEditor(existing=null, draft=null){
   const r=safeClone(existing||draft||{id:safeUUID(),title:'',category:'Lainnya',mainIngredient:'',description:'',servings:2,servingsEstimate:false,prepMinutes:null,cookMinutes:null,timeEstimate:false,favorite:false,image:{type:'placeholder',exactMatch:false,alt:'',sourcePageUrl:'',creator:'',...pixabayLicense},source:{type:'manual',label:'Input manual'},ingredients:[],steps:[],notes:''});
-  renderModal(`<div class="modal-header"><div><p class="eyebrow">${existing?'Edit':'Resep baru'}</p><h2>${existing?'Edit resep':'Tambah resep'}</h2></div><button class="close-button" data-close-modal>×</button></div><form id="recipeForm" class="modal-body form-grid"><div class="field-group full"><label>Nama resep</label><input name="title" required value="${escapeHtml(r.title)}"></div><div class="field-group"><label>Kategori</label><input name="category" value="${escapeHtml(r.category||'')}"></div><div class="field-group"><label>Bahan utama</label><input name="mainIngredient" value="${escapeHtml(r.mainIngredient||'')}"></div><div class="field-group full"><label>Deskripsi</label><textarea name="description" rows="2">${escapeHtml(r.description||'')}</textarea></div><div class="field-group"><label>Porsi</label><input name="servings" type="number" min="0.5" step="0.5" value="${r.servings||''}"></div><div class="field-group"><label><input name="servingsEstimate" type="checkbox" ${r.servingsEstimate?'checked':''} style="width:auto"> Porsi ini perkiraan</label></div><div class="field-group"><label>Persiapan (menit)</label><input name="prepMinutes" type="number" min="0" value="${r.prepMinutes??''}"></div><div class="field-group"><label>Masak (menit)</label><input name="cookMinutes" type="number" min="0" value="${r.cookMinutes??''}"></div><div class="field-group full"><label><input name="timeEstimate" type="checkbox" ${r.timeEstimate?'checked':''} style="width:auto"> Waktu ini perkiraan</label></div><div class="field-group full"><label>URL foto langsung (opsional)</label><input name="imageUrl" type="url" value="${escapeHtml(r.image?.url||'')}" placeholder="https://…"><small class="helper">Kosongkan jika belum ada aset internet dengan lisensi yang sudah diverifikasi.</small></div><div class="field-group full"><label>Halaman sumber foto</label><input name="imageSource" type="url" value="${escapeHtml(r.image?.sourcePageUrl||'')}"></div><div class="field-group full"><label>Alt text foto</label><input name="imageAlt" value="${escapeHtml(r.image?.alt||'')}"></div><div class="field-group full"><label>Bahan</label><div id="ingredientEditor" class="dynamic-list">${r.ingredients.map(ingredientEditorRow).join('')}</div><button type="button" class="text-button" id="addIngredientRow">+ Tambah bahan</button></div><div class="field-group full"><label>Langkah</label><div id="stepEditor" class="dynamic-list">${r.steps.map(stepEditorRow).join('')}</div><button type="button" class="text-button" id="addStepRow">+ Tambah langkah</button></div><div class="field-group full"><label>Catatan pribadi</label><textarea name="notes" rows="3">${escapeHtml(r.notes||'')}</textarea></div></form>`,{wide:true,footer:`${existing?'<button class="danger-button" id="deleteRecipeBtn">Hapus resep</button>':''}<button class="secondary-button" data-close-modal>Batal</button><button class="primary-button" id="saveRecipeBtn">Simpan resep</button>`});
+  renderModal(`<div class="modal-header"><div><p class="eyebrow">${existing?'Edit':'Resep baru'}</p><h2>${existing?'Edit resep':'Tambah resep'}</h2></div><button class="close-button" data-close-modal>×</button></div><form id="recipeForm" class="modal-body form-grid"><div class="field-group full"><label>Nama resep</label><input name="title" required value="${escapeHtml(r.title)}"></div><div class="field-group"><label>Kategori</label><input name="category" value="${escapeHtml(r.category||'')}"></div><div class="field-group"><label>Bahan utama</label><input name="mainIngredient" value="${escapeHtml(r.mainIngredient||'')}"></div><div class="field-group full"><label>Deskripsi</label><textarea name="description" rows="2">${escapeHtml(r.description||'')}</textarea></div><div class="field-group"><label>Porsi</label><input name="servings" type="number" min="0.5" step="0.5" value="${r.servings||''}"></div><div class="field-group"><label><input name="servingsEstimate" type="checkbox" ${r.servingsEstimate?'checked':''} style="width:auto"> Porsi ini perkiraan</label></div><div class="field-group"><label>Persiapan (menit)</label><input name="prepMinutes" type="number" min="0" value="${r.prepMinutes??''}"></div><div class="field-group"><label>Masak (menit)</label><input name="cookMinutes" type="number" min="0" value="${r.cookMinutes??''}"></div><div class="field-group full"><label><input name="timeEstimate" type="checkbox" ${r.timeEstimate?'checked':''} style="width:auto"> Waktu ini perkiraan</label></div><div class="field-group full"><label>URL foto langsung (opsional)</label><input name="imageUrl" type="url" value="${escapeHtml(r.image?.url||'')}" placeholder="https://…"><small class="helper">Kosongkan jika belum ada aset internet dengan lisensi yang sudah diverifikasi.</small></div><div class="field-group full"><label>Halaman sumber foto</label><input name="imageSource" type="url" value="${escapeHtml(r.image?.sourcePageUrl||'')}"></div><div class="field-group full"><label>Alt text foto</label><input name="imageAlt" value="${escapeHtml(r.image?.alt||'')}"></div><div class="field-group full"><label>Foto internet berlisensi</label><div class="inline-actions"><button type="button" class="secondary-button" id="searchPhotoBtn">Cari di Wikimedia Commons</button></div><div id="photoResults"></div><small class="helper">Kreator + lisensi tercatat otomatis. Bukan foto masakan sendiri.</small></div><div class="field-group full"><label>Bahan</label><div id="ingredientEditor" class="dynamic-list">${r.ingredients.map(ingredientEditorRow).join('')}</div><button type="button" class="text-button" id="addIngredientRow">+ Tambah bahan</button></div><div class="field-group full"><label>Langkah</label><div id="stepEditor" class="dynamic-list">${r.steps.map(stepEditorRow).join('')}</div><button type="button" class="text-button" id="addStepRow">+ Tambah langkah</button></div><div class="field-group full"><label>Catatan pribadi</label><textarea name="notes" rows="3">${escapeHtml(r.notes||'')}</textarea></div></form>`,{wide:true,footer:`${existing?'<button class="danger-button" id="deleteRecipeBtn">Hapus resep</button>':''}<button class="secondary-button" data-close-modal>Batal</button><button class="primary-button" id="saveRecipeBtn">Simpan resep</button>`});
   document.getElementById('addIngredientRow').onclick=()=>document.getElementById('ingredientEditor').insertAdjacentHTML('beforeend',ingredientEditorRow(i('',null,'')));
   document.getElementById('addStepRow').onclick=()=>document.getElementById('stepEditor').insertAdjacentHTML('beforeend',stepEditorRow(''));
+  document.getElementById('searchPhotoBtn').onclick=async()=>{
+    var box=document.getElementById('photoResults');
+    var form=document.getElementById('recipeForm'); var fd0=form?new FormData(form):null;
+    var q=(fd0&&String(fd0.get('imageAlt')||'').trim())||r.title||'';
+    if(!q){toast('Isi judul atau alt text dulu sebagai kata kunci.');return;}
+    box.innerHTML='<p class="helper">Mencari foto “'+escapeHtml(q)+'”…</p>';
+    try{
+      var list=await searchCommonsPhotos(q);
+      if(!list.length){box.innerHTML='<div class="empty-state"><strong>Tidak ketemu foto yang cocok</strong><p>Biarkan URL kosong — “Foto belum tersedia” lebih baik daripada foto acak.</p></div>';return;}
+      box.innerHTML='<div class="compact-list">'+list.map(function(p,n){return '<div class="compact-item"><img src="'+escapeHtml(p.thumb)+'" alt="'+escapeHtml(p.title)+'" loading="lazy" style="width:100%;border-radius:8px;aspect-ratio:4/3;object-fit:cover" onerror="this.outerHTML=\'<div class=&quot;image-fallback&quot;><strong>Foto gagal dimuat</strong></div>\'"><strong style="margin-top:6px">'+escapeHtml(p.title)+'</strong><small>'+escapeHtml(p.author)+' · '+escapeHtml(p.license)+'</small><div><button type="button" class="text-button" data-photo-pick="'+n+'">Pakai foto ini</button></div></div>';}).join('')+'</div>';
+      box.querySelectorAll('[data-photo-pick]').forEach(function(b){
+        b.onclick=function(){
+          var p=list[Number(b.getAttribute('data-photo-pick'))]; if(!p)return;
+          var f=document.getElementById('recipeForm');
+          f.querySelector('[name=imageUrl]').value=p.thumb;
+          f.querySelector('[name=imageSource]').value=p.pageUrl;
+          if(!f.querySelector('[name=imageAlt]').value) f.querySelector('[name=imageAlt]').value=p.title;
+          r.image=Object.assign({},r.image,{creator:p.author,licenseName:p.license,licenseUrl:p.licenseUrl,note:'Foto internet oleh '+p.author+' ('+p.license+'), bukan foto masakan sendiri.'});
+          toast('Foto + atribusi dimasukkan. Tinjau sebelum simpan.');
+        };
+      });
+    }catch(e){box.innerHTML='<div class="empty-state"><strong>Pencarian foto gagal</strong><p>'+escapeHtml((e&&e.message)||e)+'</p></div>';}
+  };
   document.getElementById('recipeForm').addEventListener('click',e=>{ if(e.target.matches('[data-remove-dynamic]')) e.target.closest('.dynamic-row').remove(); });
   document.getElementById('saveRecipeBtn').onclick=()=>document.getElementById('recipeForm').requestSubmit();
   document.getElementById('recipeForm').onsubmit=async e=>{e.preventDefault(); const fd=new FormData(e.currentTarget); r.title=String(fd.get('title')).trim();r.category=String(fd.get('category')).trim()||'Lainnya';r.mainIngredient=String(fd.get('mainIngredient')).trim();r.description=String(fd.get('description')).trim();r.servings=Number(fd.get('servings'))||1;r.servingsEstimate=fd.get('servingsEstimate')==='on';r.prepMinutes=fd.get('prepMinutes')===''?null:Number(fd.get('prepMinutes'));r.cookMinutes=fd.get('cookMinutes')===''?null:Number(fd.get('cookMinutes'));r.timeEstimate=fd.get('timeEstimate')==='on';r.notes=String(fd.get('notes')).trim();r.image={...r.image,type:fd.get('imageUrl')?'internet':'placeholder',url:String(fd.get('imageUrl')||'').trim()||undefined,sourcePageUrl:String(fd.get('imageSource')||'').trim(),alt:String(fd.get('imageAlt')||'').trim()||r.title};r.ingredients=[...document.querySelectorAll('#ingredientEditor .dynamic-row')].map(row=>({id:safeUUID(),name:row.querySelector('[data-ing-name]').value.trim(),amount:row.querySelector('[data-ing-amount]').value===''?null:Number(row.querySelector('[data-ing-amount]').value),unit:normalizeUnit(row.querySelector('[data-ing-unit]').value),optional:row.querySelector('[data-ing-optional]').checked,note:''})).filter(x=>x.name);r.steps=[...document.querySelectorAll('#stepEditor [data-step-text]')].map(x=>x.value.trim()).filter(Boolean);r.updatedAt=new Date().toISOString();r.createdAt=r.createdAt||r.updatedAt;await db.put(STORE.recipes,r);await refreshState();renderAll();closeModal();toast('Resep disimpan.');};
