@@ -8,8 +8,8 @@ const DB_VERSION = 1;
 const STORE = { recipes: 'recipes', stock: 'stock', shopping: 'shopping', transactions: 'transactions', settings: 'settings' };
 
 const UNIT_GROUPS = {
-  mass: { g: 1, gram: 1, kg: 1000, kilogram: 1000 },
-  volume: { ml: 1, mililiter: 1, l: 1000, liter: 1000 },
+  mass: { g: 1, gram: 1, ons: 100, kg: 1000, kilogram: 1000 },
+  volume: { ml: 1, mililiter: 1, cc: 1, l: 1000, liter: 1000 },
   each: { buah: 1 },
   egg: { butir: 1 },
   clove: { siung: 1 },
@@ -25,8 +25,8 @@ const UNIT_GROUPS = {
 };
 
 const UNIT_ALIASES = {
-  gr: 'g', gram: 'g', grams: 'g', kilogram: 'kg', kilograms: 'kg',
-  mililiter: 'ml', milliliter: 'ml', liter: 'l', litres: 'l',
+  gr: 'g', gram: 'g', grams: 'g', ons: 'ons', on: 'ons', ounce: 'ons', kilogram: 'kg', kilograms: 'kg',
+  mililiter: 'ml', milliliter: 'ml', cc: 'ml', liter: 'l', litres: 'l',
   pcs: 'buah', buah: 'buah', butir: 'butir', siung: 'siung', batang: 'batang', lembar: 'lembar',
   sachet: 'sachet', bungkus: 'bungkus', ikat: 'ikat', sdm: 'sdm', 'sendok makan': 'sdm',
   sdt: 'sdt', 'sendok teh': 'sdt', cm: 'cm', piring: 'piring'
