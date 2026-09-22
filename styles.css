@@ -623,3 +623,54 @@ textarea { resize: vertical; line-height: 1.5; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ---------- Desktop (versi web lebar) ----------
+   Mobile-first tetap default. Mulai 1024px: navigasi pindah ke atas,
+   konten melebar, grid rapat. Tanpa mengubah markup/JS. */
+@media (min-width: 1024px) {
+  body { padding-bottom: 0; }
+
+  .app-shell, #main { max-width: 1120px; }
+  #main { padding-top: var(--s-6); }
+
+  .topbar { min-height: 76px; }
+  .brand strong { font-size: 17px; }
+
+  /* Tab bar bawah -> tab strip atas */
+  .nav-tabs {
+    position: sticky; top: 0; bottom: auto; z-index: 30;
+    border-top: 0; border-bottom: 1px solid var(--c-border);
+    border-radius: 0 0 var(--r-md) var(--r-md);
+    padding: 6px;
+    gap: 4px;
+    background: var(--c-surface);
+  }
+  .nav-tab {
+    flex-direction: row; gap: 8px;
+    min-height: var(--tap);
+    font-size: var(--fs-md);
+    padding: 6px 18px;
+  }
+  .nav-tab.active { background: var(--c-primary); color: #fff; }
+  .nav-tab.active .count-badge { background: #fff; color: var(--c-primary); }
+
+  .hero-copy h1 { font-size: 44px; }
+
+  .recipe-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); }
+  .compact-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .page-heading { flex-direction: row; align-items: flex-start; }
+  .section-heading { flex-direction: row; }
+
+  /* Beranda: rekomendasi 2 kolom agar sejajar hero lebar */
+  #homeRecommendations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+
+  .modal-backdrop { align-items: center; }
+  .toast-region { left: auto; right: 24px; bottom: 24px; }
+  .toast { margin: 0; }
+}
+
+@media (min-width: 1400px) {
+  .app-shell, #main { max-width: 1240px; }
+  .recipe-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
