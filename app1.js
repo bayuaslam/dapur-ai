@@ -21,7 +21,11 @@ const UNIT_GROUPS = {
   tbsp: { sdm: 1 },
   tsp: { sdt: 1 },
   cm: { cm: 1 },
-  plate: { piring: 1 }
+  plate: { piring: 1 },
+  seg: { ruas: 1 },
+  whole: { ekor: 1 },
+  glass: { gelas: 1 },
+  handful: { genggam: 1 }
 };
 
 const UNIT_ALIASES = {
@@ -29,7 +33,8 @@ const UNIT_ALIASES = {
   mililiter: 'ml', milliliter: 'ml', cc: 'ml', liter: 'l', litres: 'l',
   pcs: 'buah', buah: 'buah', butir: 'butir', siung: 'siung', batang: 'batang', lembar: 'lembar',
   sachet: 'sachet', bungkus: 'bungkus', ikat: 'ikat', sdm: 'sdm', 'sendok makan': 'sdm',
-  sdt: 'sdt', 'sendok teh': 'sdt', cm: 'cm', piring: 'piring'
+  sdt: 'sdt', 'sendok teh': 'sdt', cm: 'cm', piring: 'piring',
+  ruas: 'ruas', ekor: 'ekor', gelas: 'gelas', genggam: 'genggam', gengam: 'genggam', gelas2: 'gelas'
 };
 
 const NAME_ALIASES = new Map([
